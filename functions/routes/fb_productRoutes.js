@@ -23,8 +23,12 @@ router.get("/", (req, res) => {
         // .limit(1)
         .get()
         .catch((err) => {
-            console.log("in error block");
             console.log(err);
+            res.status(500).json({
+                error: {
+                    message: "Error retrieving data from database",
+                },
+            });
         })
         .then((snap) => {
             console.log("in snapshot block");
@@ -35,17 +39,14 @@ router.get("/", (req, res) => {
                     title: item.title,
                     desc: item.desc,
                     price: item.price,
-                    url: item.url,
+                    imageUrl: item.imageUrl,
                     featured: item.featured,
                     path: basePath + "/" + doc.id,
                 };
                 products.push(obj);
             });
 
-            res.status(200).json({
-                message: "product routes works!",
-                products: products,
-            });
+            res.status(200).json(products);
         });
 });
 
@@ -58,19 +59,85 @@ router.get("/:product_id", (req, res) => {
     products_db
         .doc(id)
         .get()
-        .catch((err) => console.log(err))
+        .catch((err) => {
+            console.log(err);
+            res.status(500).json({
+                error: {
+                    message: "Error retrieving data from database",
+                },
+            });
+        })
         .then((doc) => {
             item = doc.data();
+            if (!item)
+                res.status(404).json({
+                    error: {
+                        message: "Requested resource not found",
+                    },
+                });
+            else
+                res.status(200).json({
+                    id,
+                    title: item.title,
+                    desc: item.desc,
+                    price: item.price,
+                    imageUrl: item.imageUrl,
+                    featured: item.featured,
+                    paths: {
+                        this: fullUrl,
+                        parent,
+                    },
+                });
+        });
+});
+
+router.post("/", (req, res) => {
+    const createdAt = firebase.firestore.Timestamp.fromDate(new Date());
+    const formData = {
+        title: req.body.title,
+        desc: req.body.desc,
+        price: req.body.price,
+        imageUrl: req.body.imageUrl,
+        featured: false,
+        createdAt,
+    };
+    products_db
+        .add(formData)
+        .catch((err) => {
+            console.log(err);
+            res.status(500).json({
+                error: {
+                    message: "Error adding data to database",
+                },
+            });
+        })
+        .then((docRef) => {
+            console.log(`Document was written to firestore with id: ${docRef.id}`);
+            res.status(201).json({
+                id: docRef.id,
+                ...formData,
+            });
+        });
+});
+
+router.delete("/:product_id", (req, res) => {
+    const product_id = req.params.product_id;
+    products_db
+        .doc(product_id)
+        .delete()
+        .catch((err) => {
+            console.log(err);
+            res.status(500).json({
+                error: {
+                    message: "Error deleting the document",
+                },
+            });
+        })
+        .then(() => {
+            console.log(`document id: ${product_id} successfully deleted`);
             res.status(200).json({
-                id,
-                title: item.title,
-                desc: item.desc,
-                price: item.price,
-                url: item.url,
-                featured: item.featured,
-                paths: {
-                    this: fullUrl,
-                    parent,
+                success: {
+                    message: "Document successfully deleted",
                 },
             });
         });
