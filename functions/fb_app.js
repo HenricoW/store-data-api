@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 
 const productRoutes = require("./routes/fb_productRoutes");
+const nftRoutes = require("./routes/fb_nftRoutes");
 
 admin.initializeApp();
 
@@ -18,5 +19,6 @@ fb_app.get("/", (req, res) => {
 });
 
 fb_app.use("/products", productRoutes);
+fb_app.use("/nft", nftRoutes);
 
 module.exports = fb_app;
