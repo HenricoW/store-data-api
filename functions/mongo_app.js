@@ -7,7 +7,7 @@ const cors = require("cors");
 const productRoutes = require("./routes/productRoutes");
 
 // const CONN_STRING = functions.config().db ? functions.config().db.conn_string : process.env.DB_CONN_STRING;
-const CONN_STRING = functions.config().db.conn_string;
+const CONN_STRING = functions.config().mongo_db.conn_string;
 
 mongoose.connect(CONN_STRING, { useNewUrlParser: true, useUnifiedTopology: true }, (err) => {
     if (err) console.log(err);

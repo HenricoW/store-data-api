@@ -1,12 +1,6 @@
 const express = require("express");
 const firebase = require("firebase");
 
-// firebase.initializeApp({
-//     apiKey: "AIzaSyBjy4c1Ydi7fEYy_Ra2dG4yKpXF3yblFLk",
-//     authDomain: "blockstore-1.firebaseapp.com",
-//     projectId: "blockstore-1",
-// });
-
 const db = firebase.firestore();
 const nft_db = db.collection("nft");
 

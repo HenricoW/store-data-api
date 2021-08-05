@@ -1,10 +1,11 @@
 const express = require("express");
 const firebase = require("firebase");
+const functions = require("firebase-functions");
 
 firebase.initializeApp({
-    apiKey: "AIzaSyBjy4c1Ydi7fEYy_Ra2dG4yKpXF3yblFLk",
-    authDomain: "blockstore-1.firebaseapp.com",
-    projectId: "blockstore-1",
+    apiKey: functions.config().fb_db.api_key,
+    authDomain: functions.config().fb_db.api_key,
+    projectId: functions.config().fb_db.project_id,
 });
 
 const db = firebase.firestore();
