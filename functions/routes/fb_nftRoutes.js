@@ -6,7 +6,8 @@ const nft_db = db.collection("nft");
 
 const router = express.Router();
 
-const pathFiller = "/store-w3-api/us-central1/api2";
+// const pathFiller = "/store-w3-api/us-central1/api2"; // in dev
+const pathFiller = "/api2"; // in prod
 
 const validateData = (req, res, next) => {
     const validFields = ["title", "desc", "imageUrl", "itemID", "tokenID"];
@@ -148,7 +149,7 @@ router.post("/", validateData, (req, res) => {
         desc: req.body.desc,
         imageUrl: req.body.imageUrl,
         itemID: req.body.itemID,
-        tokenID: req.body.tokenID,
+        tokenID: parseInt(req.body.tokenID),
         purchasedOn,
     };
     nft_db

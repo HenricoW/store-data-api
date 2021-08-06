@@ -13,7 +13,8 @@ const products_db = db.collection("products");
 
 const router = express.Router();
 
-const pathFiller = "/store-w3-api/us-central1/api2";
+// const pathFiller = "/store-w3-api/us-central1/api2"; // in dev
+const pathFiller = "/api2"; // in prod
 
 router.get("/", (req, res) => {
     let products = [];
