@@ -8,6 +8,7 @@ firebase.initializeApp({
     projectId: functions.config().fb_db.project_id,
 });
 
+firebase.auth().signInWithEmailAndPassword(functions.config().fb_fs_auth.mail, functions.config().fb_fs_auth.pwd);
 const db = firebase.firestore();
 const products_db = db.collection("products");
 
