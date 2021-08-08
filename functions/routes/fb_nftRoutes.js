@@ -1,14 +1,13 @@
 const express = require("express");
-const firebase = require("firebase");
+const { db, timestamp_fb } = require("../firebase_db");
 
-const db = firebase.firestore();
 const nft_db = db.collection("nft");
-
 const router = express.Router();
 
 // const pathFiller = "/store-w3-api/us-central1/api2"; // in dev
 const pathFiller = "/api2"; // in prod
 
+// nft data validation on post request
 const validateData = (req, res, next) => {
     const validFields = ["title", "desc", "imageUrl", "itemID", "tokenID"];
     const reqFields = Object.keys(req.body);
@@ -29,36 +28,46 @@ const validateData = (req, res, next) => {
     }
 
     // check if tokenID is already used
-    nft_db
-        .where("tokenID", "==", parseInt(req.body.tokenID))
-        .get()
-        .catch((err) => {
-            console.log(err);
-            res.status(500).json({
-                error: {
-                    message: "Error validating tokenID",
-                },
-            });
-        })
-        .then((snap) => {
-            let itemArray = [];
-            snap.forEach((doc) => {
-                itemArray.push(doc.data());
-            });
-            if (itemArray.length > 0) {
-                hasError = true;
-                res.status(400).json({
+    if (!hasError)
+        nft_db
+            .where("tokenID", "==", parseInt(req.body.tokenID))
+            .get()
+            .catch((err) => {
+                console.log(err);
+                res.status(500).json({
                     error: {
-                        message: "tokenID already taken",
+                        message: "Error verifying tokenID",
                     },
                 });
-            }
+            })
+            .then((snap) => {
+                if (!snap) {
+                    res.status(404).json({
+                        error: {
+                            message: "Empty resource returned",
+                        },
+                    });
+                } else {
+                    let itemArray = [];
+                    // snapshot obj: can't just do snap.length, have to 'unwrap' with forEach()
+                    snap.forEach((doc) => {
+                        itemArray.push(doc.data());
+                    });
 
-            if (!hasError) {
-                console.log("Request data validated*");
-                next();
-            }
-        });
+                    if (itemArray.length > 0) {
+                        res.status(400).json({
+                            error: {
+                                message: "tokenID already taken",
+                            },
+                        });
+                    } else {
+                        // ...further validation/sanitization...
+
+                        console.log("Request data validated*");
+                        next();
+                    }
+                }
+            });
 };
 
 router.get("/", (req, res) => {
@@ -78,18 +87,25 @@ router.get("/", (req, res) => {
             });
         })
         .then((snap) => {
-            console.log("in snapshot block");
-            snap.forEach((doc) => {
-                let item = doc.data();
-                const obj = {
-                    id: doc.id,
-                    ...item,
-                    path: basePath + "/" + item.tokenID,
-                };
-                products.push(obj);
-            });
+            if (!snap) {
+                res.status(404).json({
+                    error: {
+                        message: "Empty resource returned",
+                    },
+                });
+            } else {
+                snap.forEach((doc) => {
+                    let item = doc.data();
+                    const obj = {
+                        id: doc.id,
+                        ...item,
+                        path: basePath + "/" + item.tokenID,
+                    };
+                    products.push(obj);
+                });
 
-            res.status(200).json(products);
+                res.status(200).json(products);
+            }
         });
 });
 
@@ -110,40 +126,43 @@ router.get("/:token_id", (req, res) => {
             });
         })
         .then((snap) => {
-            let itemArray = [];
-            console.log("in snapshot block");
-            snap.forEach((doc) => {
-                itemArray.push(doc.data());
-            });
-            const data = itemArray[0];
-            if (itemArray.length === 0)
+            if (!snap) {
                 res.status(404).json({
                     error: {
-                        message: "Requested resource not found",
+                        message: "Empty resource returned",
                     },
                 });
-            else
-                res.status(200).json({
-                    title: data.title,
-                    desc: data.desc,
-                    imageUrl: data.imageUrl,
-                    itemID: data.itemID,
-                    tokenID: data.tokenID,
-                    purchasedOn: data.purchasedOn,
-                    paths: {
-                        this: fullUrl,
-                        parent,
-                    },
+            } else {
+                let itemArray = [];
+                snap.forEach((doc) => {
+                    itemArray.push(doc.data());
                 });
+                const data = itemArray[0];
+                if (itemArray.length === 0)
+                    res.status(404).json({
+                        error: {
+                            message: "Requested resource not found",
+                        },
+                    });
+                else
+                    res.status(200).json({
+                        title: data.title,
+                        desc: data.desc,
+                        imageUrl: data.imageUrl,
+                        itemID: data.itemID,
+                        tokenID: data.tokenID,
+                        purchasedOn: data.purchasedOn,
+                        paths: {
+                            this: fullUrl,
+                            parent,
+                        },
+                    });
+            }
         });
 });
 
 router.post("/", validateData, (req, res) => {
-    if (res.error) {
-        // res.send();
-        return;
-    }
-    const purchasedOn = firebase.firestore.Timestamp.fromDate(new Date());
+    const purchasedOn = timestamp_fb();
     const postData = {
         title: req.body.title,
         desc: req.body.desc,

@@ -1,9 +1,7 @@
 const express = require("express");
-const firebase = require("firebase");
+const { db, timestamp_fb } = require("../firebase_db");
 
-const db = firebase.firestore();
 const review_db = db.collection("reviews");
-
 const router = express.Router();
 
 // const pathFiller = "/store-w3-api/us-central1/api2"; // in dev
@@ -28,6 +26,8 @@ const validateData = (req, res, next) => {
         }
     }
 
+    // ...further validation/sanitization...
+
     if (!hasError) {
         console.log("Request data validated*");
         next();
@@ -37,7 +37,6 @@ const validateData = (req, res, next) => {
 router.get("/", (req, res) => {
     let reviews = [];
     const basePath = req.protocol + "://" + req.get("host") + pathFiller + req.baseUrl;
-    console.log("in /review");
     review_db
         // .orderBy("createdAt")
         // .limit(1)
@@ -51,18 +50,25 @@ router.get("/", (req, res) => {
             });
         })
         .then((snap) => {
-            console.log("in snapshot block");
-            snap.forEach((doc) => {
-                let item = doc.data();
-                const obj = {
-                    id: doc.id,
-                    ...item,
-                    path: basePath + "/" + doc.id,
-                };
-                reviews.push(obj);
-            });
+            if (!snap) {
+                res.status(404).json({
+                    error: {
+                        message: "Empty resource returned",
+                    },
+                });
+            } else {
+                snap.forEach((doc) => {
+                    let item = doc.data();
+                    const obj = {
+                        id: doc.id,
+                        ...item,
+                        path: basePath + "/" + doc.id,
+                    };
+                    reviews.push(obj);
+                });
 
-            res.status(200).json(reviews);
+                res.status(200).json(reviews);
+            }
         });
 });
 
@@ -103,11 +109,7 @@ router.get("/:review_id", (req, res) => {
 });
 
 router.post("/", validateData, (req, res) => {
-    if (res.error) {
-        // res.send();
-        return;
-    }
-    const addedOn = firebase.firestore.Timestamp.fromDate(new Date());
+    const addedOn = timestamp_fb();
     const postData = {
         name: req.body.name,
         imageUrl: req.body.imageUrl,
