@@ -1,5 +1,9 @@
 const express = require("express");
+const firebase = require("firebase");
+const functions = require("firebase-functions");
+
 const { db, timestamp_fb } = require("../firebase_db");
+const getSignerAddress = require("../utils/ethUtils");
 
 const products_db = db.collection("products");
 const router = express.Router();
@@ -7,8 +11,9 @@ const router = express.Router();
 // const pathFiller = "/store-w3-api/us-central1/api2"; // in dev
 const pathFiller = "/api2"; // in prod
 
+// middleware
 const validateData = (req, res, next) => {
-    const validFields = ["title", "desc", "price", "imageUrl"];
+    const validFields = ["title", "desc", "price", "imageUrl", "message", "signedMssg"];
     const reqFields = Object.keys(req.body);
     let hasError = false;
 
@@ -26,6 +31,9 @@ const validateData = (req, res, next) => {
         }
     }
 
+    const address = getSignerAddress(req.body.message, req.body.signedMssg);
+    console.log(address);
+
     // ...further validation/sanitization...
 
     if (!hasError) {
@@ -33,6 +41,30 @@ const validateData = (req, res, next) => {
         next();
     }
 };
+
+const fbAuthorize = (req, res, next) => {
+    if (firebase.auth().currentUser) {
+        next();
+    } else {
+        firebase
+            .auth()
+            .signInWithEmailAndPassword(functions.config().fb_fs_auth.mail, functions.config().fb_fs_auth.pwd)
+            .catch((err) => {
+                console.log(err);
+                res.status(500).json({
+                    error: {
+                        message: "Error getting authorized with db app",
+                    },
+                });
+            })
+            .then((user) => {
+                console.log("authorized with db app");
+                next();
+            });
+    }
+};
+
+router.use(fbAuthorize);
 
 // get all products
 router.get("/", (req, res) => {
