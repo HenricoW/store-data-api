@@ -7,69 +7,13 @@ const router = express.Router();
 // const pathFiller = "/store-w3-api/us-central1/api2"; // in dev
 const pathFiller = "/api2"; // in prod
 
-// nft data validation on post request
-const validateData = (req, res, next) => {
-    const validFields = ["title", "desc", "imageUrl", "itemID", "tokenID"];
-    const reqFields = Object.keys(req.body);
-    let hasError = false;
+// middleware
+const { nftValidation } = require("../middleware/inputValidation");
+const fbAuthorize = require("../middleware/firebaseAuth");
+router.use(fbAuthorize);
 
-    // check if all fields are present
-    for (let i = 0; i < validFields.length; i++) {
-        if (!reqFields.includes(validFields[i])) {
-            const message = `Field: '${validFields[i]}' not present in request body`;
-            hasError = true;
-            res.status(406).json({
-                error: {
-                    message,
-                },
-            });
-            break;
-        }
-    }
-
-    // check if tokenID is already used
-    if (!hasError)
-        nft_db
-            .where("tokenID", "==", parseInt(req.body.tokenID))
-            .get()
-            .catch((err) => {
-                console.log(err);
-                res.status(500).json({
-                    error: {
-                        message: "Error verifying tokenID",
-                    },
-                });
-            })
-            .then((snap) => {
-                if (!snap) {
-                    res.status(404).json({
-                        error: {
-                            message: "Empty resource returned",
-                        },
-                    });
-                } else {
-                    let itemArray = [];
-                    // snapshot obj: can't just do snap.length, have to 'unwrap' with forEach()
-                    snap.forEach((doc) => {
-                        itemArray.push(doc.data());
-                    });
-
-                    if (itemArray.length > 0) {
-                        res.status(400).json({
-                            error: {
-                                message: "tokenID already taken",
-                            },
-                        });
-                    } else {
-                        // ...further validation/sanitization...
-
-                        console.log("Request data validated*");
-                        next();
-                    }
-                }
-            });
-};
-
+// ROUTES
+// get all nfts
 router.get("/", (req, res) => {
     let products = [];
     const basePath = req.protocol + "://" + req.get("host") + pathFiller + req.baseUrl;
@@ -109,6 +53,7 @@ router.get("/", (req, res) => {
         });
 });
 
+// get specific nft by contract generated token id
 router.get("/:token_id", (req, res) => {
     const token_id = req.params.token_id;
     const parent = req.protocol + "://" + req.get("host") + pathFiller + req.baseUrl;
@@ -161,8 +106,11 @@ router.get("/:token_id", (req, res) => {
         });
 });
 
-router.post("/", validateData, (req, res) => {
+// add a new nft to 'nfts' collection. return item data + firestore id on success
+router.post("/", nftValidation, (req, res) => {
     const purchasedOn = timestamp_fb();
+
+    // extract only the needed information from the request
     const postData = {
         title: req.body.title,
         desc: req.body.desc,
@@ -171,6 +119,7 @@ router.post("/", validateData, (req, res) => {
         tokenID: parseInt(req.body.tokenID),
         purchasedOn,
     };
+
     nft_db
         .add(postData)
         .catch((err) => {
@@ -190,8 +139,10 @@ router.post("/", validateData, (req, res) => {
         });
 });
 
+// delete nft entry from 'nfts' collection
 // router.delete("/:token_id", (req, res) => {
 //     const token_id = req.params.token_id;
+//
 //     nft_db
 //         .doc(product_id)
 //         .delete()

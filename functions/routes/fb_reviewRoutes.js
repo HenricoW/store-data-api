@@ -7,33 +7,13 @@ const router = express.Router();
 // const pathFiller = "/store-w3-api/us-central1/api2"; // in dev
 const pathFiller = "/api2"; // in prod
 
-const validateData = (req, res, next) => {
-    const validFields = ["name", "imageUrl", "text"];
-    const reqFields = Object.keys(req.body);
-    let hasError = false;
+// middleware
+const { reviewValidation } = require("../middleware/inputValidation");
+const fbAuthorize = require("../middleware/firebaseAuth");
+router.use(fbAuthorize);
 
-    // check if all fields are present
-    for (let i = 0; i < validFields.length; i++) {
-        if (!reqFields.includes(validFields[i])) {
-            const message = `Field: '${validFields[i]}' not present in request body`;
-            hasError = true;
-            res.status(406).json({
-                error: {
-                    message,
-                },
-            });
-            break;
-        }
-    }
-
-    // ...further validation/sanitization...
-
-    if (!hasError) {
-        console.log("Request data validated*");
-        next();
-    }
-};
-
+// ROUTES
+// get all reviews
 router.get("/", (req, res) => {
     let reviews = [];
     const basePath = req.protocol + "://" + req.get("host") + pathFiller + req.baseUrl;
@@ -72,6 +52,7 @@ router.get("/", (req, res) => {
         });
 });
 
+// get specific review by firestore generated document id
 router.get("/:review_id", (req, res) => {
     const review_id = req.params.review_id;
     const parent = req.protocol + "://" + req.get("host") + pathFiller + req.baseUrl;
@@ -108,14 +89,18 @@ router.get("/:review_id", (req, res) => {
         });
 });
 
-router.post("/", validateData, (req, res) => {
+// add a new review to 'reviews' collection. return item data + firestore id on success
+router.post("/", reviewValidation, (req, res) => {
     const addedOn = timestamp_fb();
+
+    // extract only the needed information from the request
     const postData = {
         name: req.body.name,
         imageUrl: req.body.imageUrl,
         text: req.body.text,
         addedOn,
     };
+
     review_db
         .add(postData)
         .catch((err) => {
@@ -135,8 +120,10 @@ router.post("/", validateData, (req, res) => {
         });
 });
 
+// delete review entry from 'reviews' collection
 router.delete("/:review_id", (req, res) => {
     const review_id = req.params.review_id;
+
     review_db
         .doc(review_id)
         .delete()

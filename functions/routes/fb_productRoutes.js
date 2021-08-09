@@ -1,9 +1,5 @@
 const express = require("express");
-const firebase = require("firebase");
-const functions = require("firebase-functions");
-
 const { db, timestamp_fb } = require("../firebase_db");
-const getSignerAddress = require("../utils/ethUtils");
 
 const products_db = db.collection("products");
 const router = express.Router();
@@ -12,60 +8,11 @@ const router = express.Router();
 const pathFiller = "/api2"; // in prod
 
 // middleware
-const validateData = (req, res, next) => {
-    const validFields = ["title", "desc", "price", "imageUrl", "message", "signedMssg"];
-    const reqFields = Object.keys(req.body);
-    let hasError = false;
-
-    // check if all fields are present
-    for (let i = 0; i < validFields.length; i++) {
-        if (!reqFields.includes(validFields[i])) {
-            const message = `Field: '${validFields[i]}' not present in request body`;
-            hasError = true;
-            res.status(406).json({
-                error: {
-                    message,
-                },
-            });
-            break;
-        }
-    }
-
-    const address = getSignerAddress(req.body.message, req.body.signedMssg);
-    console.log(address);
-
-    // ...further validation/sanitization...
-
-    if (!hasError) {
-        console.log("Request data validated*");
-        next();
-    }
-};
-
-const fbAuthorize = (req, res, next) => {
-    if (firebase.auth().currentUser) {
-        next();
-    } else {
-        firebase
-            .auth()
-            .signInWithEmailAndPassword(functions.config().fb_fs_auth.mail, functions.config().fb_fs_auth.pwd)
-            .catch((err) => {
-                console.log(err);
-                res.status(500).json({
-                    error: {
-                        message: "Error getting authorized with db app",
-                    },
-                });
-            })
-            .then((user) => {
-                console.log("authorized with db app");
-                next();
-            });
-    }
-};
-
+const { productValidation } = require("../middleware/inputValidation");
+const fbAuthorize = require("../middleware/firebaseAuth");
 router.use(fbAuthorize);
 
+// ROUTES
 // get all products
 router.get("/", (req, res) => {
     const basePath = req.protocol + "://" + req.get("host") + pathFiller + req.baseUrl;
@@ -155,7 +102,7 @@ router.get("/:product_id", (req, res) => {
 });
 
 // add a new product to 'products' collection. return item data + firestore id on success
-router.post("/", validateData, (req, res) => {
+router.post("/", productValidation, (req, res) => {
     const createdAt = timestamp_fb();
 
     // extract only the needed information from the request
